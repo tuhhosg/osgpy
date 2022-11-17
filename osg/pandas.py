@@ -20,11 +20,13 @@ def missing_rows(data, collapse=True):
     dims = data.reset_index()[data.index.names].apply(set)
     full_index = pd.MultiIndex.from_product(dims)
     missing_index = full_index.difference(data.index)
+    if len(missing_index) == 0:
+        return None
     df = pd.DataFrame(missing_index.to_list(), columns=dims.index)
 
     # Reorder Columns by fullness
     def is_full(s):
-        return len(set(s))/len(set(dims[s.name]))
+        return len(set(s))/len(dims[s.name])
 
     names = df.apply(is_full).sort_values().index.to_list()
 

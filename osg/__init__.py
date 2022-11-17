@@ -1,2 +1,2 @@
-import pandas
-import plot
+from . import pandas
+from . import plot
