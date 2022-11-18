@@ -1,7 +1,7 @@
 import pandas as pd
 from collections.abc import Iterable
 
-def missing_rows(data, collapse=True):
+def missing_rows(data, collapse=True, known_missing=None):
     """Find missing measurements in large datasets.
 
     For each index column of the data frame `data`, we collect all
@@ -10,6 +10,9 @@ def missing_rows(data, collapse=True):
     values are missing for a full product of the measurements.
 
     collapse: Boolean or column names to collapse
+
+    known_missing: If you know that some of your results are missing,
+          you can give a dataframe that is removed from the result.
 
     >>> missing_rows(...)
        benchmark    cachesize icache CPs
@@ -53,7 +56,16 @@ def missing_rows(data, collapse=True):
     for _, x in df[names].iterrows():
         ret.extend(pd.MultiIndex.from_product(x).to_list())
 
-    return pd.DataFrame(ret,columns=names)
+    df = pd.DataFrame(ret,columns=names)
+
+    # If we have known missing, remove them
+    if known_missing is not None:
+        df = (pd.merge(df, known_missing, indicator=True, how='outer')
+              .query('_merge=="left_only"')
+              .drop('_merge', axis=1))
+        if len(df) == 0:
+            return None
+    return df
 
 
 def select_quantiles(df, q=[0.0, 0.5, 1.0], columns=None, compress=True,
