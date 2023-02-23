@@ -1,5 +1,8 @@
 import pandas as pd
 from collections.abc import Iterable
+from pathlib import Path
+from fnmatch import fnmatch
+import os
 
 def missing_rows(data, collapse=True, known_missing=None):
     """Find missing measurements in large datasets.
@@ -200,3 +203,30 @@ def mapvalues(column, keys=None, values=None, na_action=None, **kwargs):
     def mapper(df):
         return df[column].map(translate_dict, na_action=na_action)
     return mapper
+
+def read_directory(dirname, read=pd.read_csv,
+                   # fnmatch filters for the filename
+                   fn_match=None, fn_not_match=None,
+                   # Take parameters from the filename
+                   fn_cols=(), fn_prefix='file_',
+                   # Arguments for the read function
+                   **kwargs):
+    dfs = []
+    for fn in Path(os.path.expanduser(dirname)).iterdir():
+        if fn_match is not None and not fnmatch.fnmatch(fn, fn_match):
+            continue
+        if fn_not_match is not None and fnmatch.fnmatch(fn, fn_not_match):
+            continue
+
+        # Read the Data
+        df =  read(fn, **kwargs)
+        # Remove all spaces in column headers, nobody needs spaces
+        df.columns = df.columns.str.strip()
+
+        # Import Columns from Path object
+        for col in fn_cols:
+            df[fn_prefix + col] = getattr(fn, col)
+
+        dfs.append(df)
+
+    return pd.concat(dfs)
