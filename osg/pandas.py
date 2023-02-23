@@ -178,3 +178,25 @@ def select_quantiles(df, q=[0.0, 0.5, 1.0], columns=None, compress=True,
 
     return ret[ordered]
 
+def mapvalues(column, keys=None, values=None, na_action=None, **kwargs):
+    """Returns a function that:
+       1. Takes an DataFrame
+       2. Selects the given column
+       3. Maps the column-contents according to key->value mapping (or kwargs dict)
+       4. Returns a pandas.Series
+
+    Can be used with plydata:
+
+    >>> df >> define(xyz_label=mapvalues('xyz', x='System 1', y='System 2'))
+    """
+    translate_dict = None
+    if keys is not None:
+        assert values is not None and len(keys) == len(values)
+        translate_dict = dict(zip(keys, values))
+    else:
+        assert kwargs is not None
+        translate_dict = kwargs
+
+    def mapper(df):
+        return df[column].map(translate_dict, na_action=na_action)
+    return mapper
