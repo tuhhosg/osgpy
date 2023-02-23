@@ -123,10 +123,10 @@ def select_quantiles(df, q=[0.0, 0.5, 1.0], columns=None, compress=True,
         value_cols = False
 
     # Get those rows from df that are at the quantile q in the column col.
-    def get_rows(col, q):
-        idx = int(q * (len(df)-1))
-        val = df.iloc[idx][col]
-        rows = df[df[col] == val].copy()
+    def get_rows(df_sort, col, q):
+        idx = int(q * (len(df_sort)-1))
+        val = df_sort.iloc[idx][col]
+        rows = df_sort[df_sort[col] == val].copy()
         if compress:
             cardinality = len(rows)
             rows = rows.iloc[:1]
@@ -153,9 +153,9 @@ def select_quantiles(df, q=[0.0, 0.5, 1.0], columns=None, compress=True,
     ret = []
     columns = columns or df.columns
     for col in columns:
-        df = df.sort_values(col)
+        df_sort = df[df[col].notna()].sort_values(col)
         for _q in q:
-            ret += [get_rows(col, _q)]
+            ret += [get_rows(df_sort, col, _q)]
 
     # Concatenate the individual rows
     ret = pd.concat(ret).set_index([column_col, q_col])
@@ -166,7 +166,8 @@ def select_quantiles(df, q=[0.0, 0.5, 1.0], columns=None, compress=True,
         if  isinstance(index_cols, Iterable):
             ordered += list(index_cols)
         else:
-            ordered += list(df.index.names)
+            ordered += list([n for n in df.index.names if n])
+
     if value_cols:
         if  isinstance(value_cols, Iterable):
             ordered += list(value_cols)
