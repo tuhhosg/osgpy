@@ -4,6 +4,34 @@ from pathlib import Path
 from fnmatch import fnmatch
 import os
 
+def read_directory(dirname, read=pd.read_csv,
+                   # fnmatch filters for the filename
+                   fn_match=None, fn_not_match=None,
+                   # Take parameters from the filename
+                   fn_cols=(), fn_prefix='file_',
+                   # Arguments for the read function
+                   **kwargs):
+    dfs = []
+    for fn in Path(os.path.expanduser(dirname)).iterdir():
+        if fn_match is not None and not fnmatch.fnmatch(fn, fn_match):
+            continue
+        if fn_not_match is not None and fnmatch.fnmatch(fn, fn_not_match):
+            continue
+
+        # Read the Data
+        df =  read(fn, **kwargs)
+        # Remove all spaces in column headers, nobody needs spaces
+        df.columns = df.columns.str.strip()
+
+        # Import Columns from Path object
+        for col in fn_cols:
+            df[fn_prefix + col] = getattr(fn, col)
+
+        dfs.append(df)
+
+    return pd.concat(dfs)
+
+
 def missing_rows(data, collapse=True, known_missing=None):
     """Find missing measurements in large datasets.
 
@@ -181,7 +209,23 @@ def select_quantiles(df, q=[0.0, 0.5, 1.0], columns=None, compress=True,
 
     return ret[ordered]
 
-def mapvalues(column, keys=None, values=None, na_action=None, **kwargs):
+
+def reorder_by(column, categories, dropna=True):
+    """Returns a function that reorders an column as an ordered category:
+
+       Can be used with plydata:
+
+       df >> do(reorder_by('foo', ['a, 'c', 'b']))"""
+    def helper(df):
+        df = df.copy()
+        df[column] = df[column].astype('category').cat.set_categories(categories, ordered=True)
+        if dropna:
+            df = df[df[column].notna()]
+        return df
+    return helper
+
+
+def mapvalues(column, keys=None, values=None, na_action=None, keep_order=True, **kwargs):
     """Returns a function that:
        1. Takes an DataFrame
        2. Selects the given column
@@ -201,32 +245,9 @@ def mapvalues(column, keys=None, values=None, na_action=None, **kwargs):
         translate_dict = kwargs
 
     def mapper(df):
-        return df[column].map(translate_dict, na_action=na_action)
+        series = df[column].map(translate_dict, na_action=na_action)
+        if values is not None and keep_order:
+            series = series.astype('category').cat.set_categories(values, ordered=True)
+        return series
     return mapper
 
-def read_directory(dirname, read=pd.read_csv,
-                   # fnmatch filters for the filename
-                   fn_match=None, fn_not_match=None,
-                   # Take parameters from the filename
-                   fn_cols=(), fn_prefix='file_',
-                   # Arguments for the read function
-                   **kwargs):
-    dfs = []
-    for fn in Path(os.path.expanduser(dirname)).iterdir():
-        if fn_match is not None and not fnmatch.fnmatch(fn, fn_match):
-            continue
-        if fn_not_match is not None and fnmatch.fnmatch(fn, fn_not_match):
-            continue
-
-        # Read the Data
-        df =  read(fn, **kwargs)
-        # Remove all spaces in column headers, nobody needs spaces
-        df.columns = df.columns.str.strip()
-
-        # Import Columns from Path object
-        for col in fn_cols:
-            df[fn_prefix + col] = getattr(fn, col)
-
-        dfs.append(df)
-
-    return pd.concat(dfs)
