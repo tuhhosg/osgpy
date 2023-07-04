@@ -4,7 +4,12 @@ from pathlib import Path
 from fnmatch import fnmatch
 import os
 
-def read_directory(dirname, read=pd.read_csv,
+def read_file(fn, *args, **kwargs):
+    df = pd.read_csv(fn, *args, **kwargs)
+    df.attrs['sources'] = [fn]
+    return df
+
+def read_directory(dirname, read=read_file,
                    # fnmatch filters for the filename
                    fn_match=None, fn_not_match=None,
                    # Take parameters from the filename
@@ -12,10 +17,11 @@ def read_directory(dirname, read=pd.read_csv,
                    # Arguments for the read function
                    **kwargs):
     dfs = []
+    files = []
     for fn in Path(os.path.expanduser(dirname)).iterdir():
-        if fn_match is not None and not fnmatch.fnmatch(fn, fn_match):
+        if fn_match is not None and not fnmatch(fn, fn_match):
             continue
-        if fn_not_match is not None and fnmatch.fnmatch(fn, fn_not_match):
+        if fn_not_match is not None and fnmatch(fn, fn_not_match):
             continue
 
         # Read the Data
@@ -29,7 +35,9 @@ def read_directory(dirname, read=pd.read_csv,
 
         dfs.append(df)
 
-    return pd.concat(dfs)
+    df = pd.concat(dfs)
+    df.attrs['sources'] = files
+    return df
 
 
 def missing_rows(data, collapse=True, known_missing=None):
