@@ -14,7 +14,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(name='osgpy',
-      version='0.1.2',
+      version='0.1.3',
       description='Python utilities of the Operating System Group',
       url='http://github.com/tuhhosg/osgpy',
       author='Christian Dietrich',
