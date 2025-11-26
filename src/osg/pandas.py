@@ -37,7 +37,9 @@ def read_directory(dirname, read=read_file, fn_match=None, fn_not_match=None,
     dfs = []
     files = []
 
-    for fn in Path(os.path.expanduser(dirname)).iterdir():
+    for fn in Path(os.path.expanduser(dirname)).rglob("*"):
+        if not fn.is_file():
+            continue
         if fn_match is not None and not fnmatch(fn.name, fn_match):
             continue
         if fn_not_match is not None and fnmatch(fn.name, fn_not_match):
