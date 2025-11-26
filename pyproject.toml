@@ -1,2 +1,31 @@
+[build-system]
+requires = ["setuptools>=61","wheel","build"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "osgpy"
+version = "0.1.5"
+description = "Python utilities of the Operating System Group"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [ { name = "Christian Dietrich", email = "christian.dietrich@tuhh.de" } ]
+dependencies = [
+	"versuchung>=1.4.1",
+	"pandas>=1.5.1",
+	"plotnine>=0.10.1",
+	"plydata>=0.4.3",
+	"scikit-misc>=0.2.0",
+]
+
+[project.urls]
+Homepage = "http://github.com/tuhhosg/osgpy"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.pytest.ini_options]
-pythonpath = ["."]
+pythonpath = ["src"]
+minversion = "6.0"
+addopts = "-q"
+testpaths = ["tests"]
