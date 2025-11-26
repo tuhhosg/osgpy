@@ -5,27 +5,46 @@ from fnmatch import fnmatch
 import os
 
 def read_file(fn, *args, **kwargs):
+    """Read a single CSV file into a pandas.DataFrame and record its source.
+
+    Parameters
+    - fn: path-like or str
+    - *args, **kwargs: passed to ``pandas.read_csv``
+
+    Returns
+    - pandas.DataFrame with a ``.attrs['sources']`` list containing the filename
+    """
     df = pd.read_csv(fn, *args, **kwargs)
     df.attrs['sources'] = [fn]
     return df
 
-def read_directory(dirname, read=read_file,
-                   # fnmatch filters for the filename
-                   fn_match=None, fn_not_match=None,
-                   # Take parameters from the filename
-                   fn_cols=(), fn_prefix='file_',
-                   # Arguments for the read function
-                   **kwargs):
+def read_directory(dirname, read=read_file, fn_match=None, fn_not_match=None,
+                   fn_cols=(), fn_prefix='file_', **kwargs):
+    """Read all files from a directory and concatenate them into one DataFrame.
+
+    Parameters
+    - dirname: directory path to scan
+    - read: callable used to read a single file (defaults to :func:`read_file`)
+    - fn_match/fn_not_match: optional filename filters (glob style)
+    - fn_cols, fn_prefix: attributes from Path objects to inject as columns
+    - **kwargs passed to the reader function
+
+    Returns
+    - pandas.DataFrame consisting of concatenated frames. The DataFrame will have
+      an ``.attrs['sources']`` key with the list of read files.
+    """
+
     dfs = []
     files = []
+
     for fn in Path(os.path.expanduser(dirname)).iterdir():
-        if fn_match is not None and not fnmatch(fn, fn_match):
+        if fn_match is not None and not fnmatch(fn.name, fn_match):
             continue
-        if fn_not_match is not None and fnmatch(fn, fn_not_match):
+        if fn_not_match is not None and fnmatch(fn.name, fn_not_match):
             continue
 
         # Read the Data
-        df =  read(fn, **kwargs)
+        df = read(fn, **kwargs)
         # Remove all spaces in column headers, nobody needs spaces
         df.columns = df.columns.str.strip()
 
@@ -34,6 +53,10 @@ def read_directory(dirname, read=read_file,
             df[fn_prefix + col] = getattr(fn, col)
 
         dfs.append(df)
+        files.append(str(fn))
+
+    if not dfs:
+        return pd.DataFrame()
 
     df = pd.concat(dfs)
     df.attrs['sources'] = files
@@ -41,24 +64,20 @@ def read_directory(dirname, read=read_file,
 
 
 def missing_rows(data, collapse=True, known_missing=None):
-    """Find missing measurements in large datasets.
+    """Return the missing index combinations for a DataFrame with a (possibly) MultiIndex.
 
-    For each index column of the data frame `data`, we collect all
-    observed values and interpret them as the possible values for this
-    dimension. The function returns a dataframe that summarizes which
-    values are missing for a full product of the measurements.
+    The function computes the cartesian product of all observed values in each index
+    level and returns the combinations that are missing in the provided data.
 
-    collapse: Boolean or column names to collapse
+    Parameters
+    - data: pandas.DataFrame with a meaningful Index or MultiIndex
+    - collapse: bool or list of columns to collapse full-columns into a '*' marker
+    - known_missing: optional DataFrame of known-missing entries to subtract
 
-    known_missing: If you know that some of your results are missing,
-          you can give a dataframe that is removed from the result.
-
-    >>> missing_rows(...)
-       benchmark    cachesize icache CPs
-    0  ghostscript        128      *   *
-    1  ghostscript        256      *   *
-
+    Returns
+    - DataFrame of missing index combinations, or None when nothing is missing
     """
+
     dims = data.reset_index()[data.index.names].apply(set)
     full_index = pd.MultiIndex.from_product(dims)
     missing_index = full_index.difference(data.index)
@@ -111,50 +130,24 @@ def select_quantiles(df, q=[0.0, 0.5, 1.0], columns=None, compress=True,
                      q_col='q', q_labels=False, column_col='column',
                      value_col='value', cardinality_col='cardinality',
                      index_cols=True, value_cols=True):
-    """Select the rows that are at the given quantile (e.g, min, median, max) of the resepective column.
+    """Select rows at given quantiles for one or more columns.
 
-    df              : DataFrame or Series to inspect
-    q               : Which quantile rows to report
-    q_labels        : Generate human readable labels instead of q values
-    columns         : For which columns are the quantiles searched?
-    compress        : If multiple rows are at a given quantile, select the first (random) and report the cardinality.
-    q_col           : column name for the selected quantile
-    column_col      : column name for the inspected column
-    value_col       : column name for the quantile value
-    cardinality_col : column name for the cardinality
-    index_cols      : Are the index columns included in the result?
-    value_cols      : Are the other columns included in the result?
+    This helper returns representative rows for requested quantiles. It is
+    designed to work with DataFrames (or Series) where selecting the row that
+    has the quantile value is useful for reporting or plotting.
 
+    Parameters
+    - df: DataFrame or Series
+    - q: sequence of quantiles in [0,1]
+    - columns: which columns to inspect (defaults to all)
+    - compress: if True, multiple matching rows are collapsed and cardinality reported
+    - q_labels, q_col, column_col, value_col, cardinality_col: naming options
+    - index_cols, value_cols: whether to include index/other columns in the result
 
-    >>> df
-                                     uniform   genetic  original_mse
-    benchmark icache cachesize CPs
-    adpcm_c   False  2         2    0.499697  0.499801  5.084280e+08
-                               3    0.666426  0.666493  5.084280e+08
-                               4    0.749660  0.749781  5.084280e+08
-                               5    0.799851  0.799958  5.084280e+08
-                               6    0.832983  0.833108  5.084280e+08
-    ...                                  ...       ...           ...
-    typeset   True   64        12   0.946788  0.983514  4.774040e+09
-                               13   0.955670  0.985238  4.774040e+09
-                               14   0.953097  0.986249  4.774040e+09
-                               15   0.956851  0.987022  4.774040e+09
-                               16   0.962734  0.987791  4.774040e+09
-
-    >>> select_quantiles(df, q=[0,0.25,0.5,0.75,1.0], columns=['uniform', 'genetic'], value_cols=False)
-                  cardinality     value   benchmark  icache  cachesize  CPs
-    column  q
-    uniform 0.00          130  0.000000  rijndael_e   False         64   11
-            0.25            1  0.661176      jpeg_d    True          2    3
-            0.50            1  0.828055     bitcnts   False          4   16
-            0.75            1  0.898309     adpcm_c    True          8   15
-            1.00            1  0.973457       pgp_e   False         64   15
-    genetic 0.00            1  0.329892      jpeg_d   False         64    2
-            0.25            1  0.856994   basicmath   False          8    9
-            0.50            1  0.922826      jpeg_d    True          2   13
-            0.75            1  0.969853       qsort   False         64   11
-            1.00            1  0.999749     bitcnts    True          8   16
+    Returns
+    - DataFrame indexed by (column, q) with requested columns
     """
+
     if type(df) is pd.Series:
         df = pd.DataFrame(data=df)
         # For a series it makes no sense to also include the values as
@@ -219,11 +212,12 @@ def select_quantiles(df, q=[0.0, 0.5, 1.0], columns=None, compress=True,
 
 
 def reorder_by(column, categories, dropna=True):
-    """Returns a function that reorders an column as an ordered category:
+    """Return a transformation that casts ``column`` to an ordered categorical.
 
-       Can be used with plydata:
-
-       df >> do(reorder_by('foo', ['a, 'c', 'b']))"""
+    Useful for data pipelines (e.g., with ``plydata``). The returned function
+    takes a DataFrame and returns a copy where ``column`` is converted to an
+    ordered ``Categorical`` with categories in the provided order.
+    """
     def helper(df):
         df = df.copy()
         df[column] = df[column].astype('category').cat.set_categories(categories, ordered=True)

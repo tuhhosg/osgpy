@@ -3,7 +3,13 @@ import pandas as pd
 from plotnine import geom_rect, geom_text, aes
 import plotnine as p9
 from fnmatch import fnmatch
-from plydata import *
+try:
+    from plydata import *
+except Exception:
+    # plydata is an optional dependency for some convenience helpers.
+    # Avoid import-time failure when plydata is unavailable or incompatible
+    # with the Python runtime used in CI/test environments.
+    pass
 from matplotlib.font_manager import FontProperties, findfont, get_font
 from matplotlib.backends.backend_agg import get_hinting_flag
 from collections import OrderedDict
