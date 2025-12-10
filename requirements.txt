@@ -4,6 +4,6 @@ versuchung>=1.4.1
 # Data Tools
 pandas>=1.5.1
 plotnine>=0.10.1
-plydata>=0.4.3
+plydata @ git+https://github.com/IBR-VSS/plydata.git
 # For plotnine geom_smooth('loess')
 scikit-misc>=0.2.0
