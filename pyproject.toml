@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "osgpy"
-version = "0.1.5"
+version = "0.1.6"
 description = "Python utilities of the Operating System Group"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -14,7 +14,7 @@ dependencies = [
 	"versuchung>=1.4.1",
 	"pandas>=1.5.1",
 	"plotnine>=0.10.1",
-	"plydata>=0.4.3",
+	"plydata @ git+https://github.com/IBR-VSS/plydata.git",
 	"scikit-misc>=0.2.0",
 ]
 
