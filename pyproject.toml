@@ -11,7 +11,6 @@ requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [ { name = "Christian Dietrich", email = "christian.dietrich@tuhh.de" } ]
 dependencies = [
-	"versuchung>=1.4.1",
 	"pandas>=1.5.1",
 	"plotnine>=0.10.1",
 	"plydata @ git+https://github.com/IBR-VSS/plydata.git",

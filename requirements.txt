@@ -1,6 +1,3 @@
-# Experimental Support
-versuchung>=1.4.1
-
 # Data Tools
 pandas>=1.5.1
 plotnine>=0.10.1
